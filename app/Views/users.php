@@ -10,9 +10,9 @@
     <?php foreach ($users as $user): ?>
 
         <p>
-            ID: <?= $user['id'] ?><br>
-            Username: <?= $user['username'] ?><br>
-            Email: <?= $user['email'] ?>
+            ID: <?= esc($user['id']) ?><br>
+            Username: <?= esc($user['username']) ?><br>
+            Full Name: <?= esc($user['full_name']) ?>
         </p>
 
         <hr>

@@ -10,9 +10,10 @@
     <?php foreach ($customers as $customer): ?>
 
         <p>
-            ID: <?= $customer['id'] ?><br>
-            Name: <?= $customer['name'] ?><br>
-            Email: <?= $customer['email'] ?>
+            ID: <?= esc($customer['id']) ?><br>
+            Name: <?= esc($customer['full_name']) ?><br>
+            Email: <?= esc($customer['email']) ?><br>
+            Phone: <?= esc($customer['phone']) ?>
         </p>
 
         <hr>
