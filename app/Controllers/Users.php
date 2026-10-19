@@ -3,16 +3,16 @@
 namespace App\Controllers;
 
 use App\Models\UserModel;
+use CodeIgniter\Exceptions\PageNotFoundException;
 
 class Users extends BaseController
 {
     public function index()
     {
         $userModel = new UserModel();
-        $users = $userModel->findAll();
 
         return view('users', [
-            'users' => $users
+            'users' => $userModel->findAll(),
         ]);
     }
 
@@ -24,74 +24,23 @@ class Users extends BaseController
     public function create()
     {
         $rules = [
-            'username'  => 'required|is_unique[users.username]',
-            'full_name' => 'required',
-        ];
-
-        if (!$this->validate($rules)) {
-            return redirect()->back()
-                ->withInput()
-                ->with('errors', $this->validator->getErrors());
-        }
-
-        $userModel = new UserModel();
-
-        $userModel->insert([
-            'username'  => $this->request->getPost('username'),
-            'full_name' => $this->request->getPost('full_name'),
-        ]);
-
-        return redirect()->to('/users')
-            ->with('success', 'User added successfully.');
-    }
-
-
-
-public function edit($id)
-{
-    $userModel = new UserModel();
-    $user = $userModel->find($id);
-
-    if (!$user) {
-        throw \CodeIgniter\Exceptions\PageNotFoundException::forPageNotFound(
-            'User not found.'
-        );
-    }
-
-    return view('users_edit', [
-        'user' => $user
-    ]);
-}
-
-    public function update($id)
-    {
-        $userModel = new UserModel();
-        $user = $userModel->find($id);
-
-        if (!$user) {
-            throw \CodeIgniter\Exceptions\PageNotFoundException::forPageNotFound(
-                'User not found.'
-            );
-        }
-
-        $rules = [
-            'username'  => "required|is_unique[users.username,id,{$id}]",
-            'full_name' => 'required',
-        ];
-
-        $avatar = $this->request->getFile('avatar');
-
-        if ($avatar && $avatar->getError() !== UPLOAD_ERR_NO_FILE) {
-            $rules['avatar'] = [
+            'username' => [
+                'label' => 'Username',
+                'rules' => 'required|max_length[50]|is_unique[users.username]',
+            ],
+            'full_name' => [
+                'label' => 'Full Name',
+                'rules' => 'required|max_length[100]',
+            ],
+            'password' => [
+                'label' => 'Password',
+                'rules' => 'required|min_length[8]|max_length[255]',
+            ],
+            'avatar' => [
                 'label' => 'Avatar',
-                'rules' => [
-                    'uploaded[avatar]',
-                    'is_image[avatar]',
-                    'mime_in[avatar,image/jpeg,image/png]',
-                    'max_size[avatar,2048]',
-                ],
-            ];
-        }
+                'rules' => 'permit_empty|is_image[avatar]|mime_in[avatar,image/jpeg,image/png]|max_size[avatar,2048]',
+            ],
+        ];
 
         if (!$this->validate($rules)) {
             return redirect()->back()
@@ -100,55 +49,122 @@ public function edit($id)
         }
 
         $data = [
-            'username'  => $this->request->getPost('username'),
-            'full_name' => $this->request->getPost('full_name'),
+            'username'   => trim((string) $this->request->getPost('username')),
+            'full_name'  => trim((string) $this->request->getPost('full_name')),
+            'password'   => password_hash(
+                (string) $this->request->getPost('password'),
+                PASSWORD_DEFAULT
+            ),
+            'created_at' => date('Y-m-d H:i:s'),
         ];
 
-        if (
-            $avatar
-            && $avatar->isValid()
-            && !$avatar->hasMoved()
-        ) {
-            $newName = $avatar->getRandomName();
+        $avatar = $this->request->getFile('avatar');
+
+        if ($avatar && $avatar->isValid() && !$avatar->hasMoved()) {
             $uploadDirectory = FCPATH . 'uploads/';
 
-            if (
-                !is_dir($uploadDirectory)
-                && !mkdir($uploadDirectory, 0755, true)
-                && !is_dir($uploadDirectory)
-            ) {
+            if (!is_dir($uploadDirectory)) {
+                mkdir($uploadDirectory, 0755, true);
+            }
+
+            $newName = $avatar->getRandomName();
+
+            if (!$avatar->move($uploadDirectory, $newName)) {
                 return redirect()->back()
                     ->withInput()
                     ->with('errors', [
-                        'avatar' => 'The uploads folder could not be created.'
+                        'avatar' => 'The avatar could not be uploaded.',
                     ]);
             }
 
-            $destination = $uploadDirectory . $newName;
+            $data['avatar'] = $newName;
+        }
 
-            try {
-                \Config\Services::image()
-                    ->withFile($avatar->getTempName())
-                    ->fit(150, 150, 'center')
-                    ->save($destination);
-            } catch (\Throwable $e) {
-                log_message(
-                    'error',
-                    'Avatar processing failed: ' . $e->getMessage()
-                );
+        $userModel = new UserModel();
+        $userModel->insert($data);
 
-                return redirect()->back()
-                    ->withInput()
-                    ->with('errors', [
-                        'avatar' => 'Avatar processing error: ' . $e->getMessage()
-                    ]);
+        return redirect()->to(site_url('users'))
+            ->with('success', 'Staff account created successfully.');
+    }
+
+    public function edit($id)
+    {
+        $userModel = new UserModel();
+        $user = $userModel->find($id);
+
+        if (!$user) {
+            throw PageNotFoundException::forPageNotFound('User not found.');
+        }
+
+        return view('users_edit', [
+            'user' => $user,
+        ]);
+    }
+
+    public function update($id)
+    {
+        $userModel = new UserModel();
+        $user = $userModel->find($id);
+
+        if (!$user) {
+            throw PageNotFoundException::forPageNotFound('User not found.');
+        }
+
+        $rules = [
+            'username' => [
+                'label' => 'Username',
+                'rules' => "required|max_length[50]|is_unique[users.username,id,{$id}]",
+            ],
+            'full_name' => [
+                'label' => 'Full Name',
+                'rules' => 'required|max_length[100]',
+            ],
+            'password' => [
+                'label' => 'New Password',
+                'rules' => 'permit_empty|min_length[8]|max_length[255]',
+            ],
+            'avatar' => [
+                'label' => 'Avatar',
+                'rules' => 'permit_empty|is_image[avatar]|mime_in[avatar,image/jpeg,image/png]|max_size[avatar,2048]',
+            ],
+        ];
+
+        if (!$this->validate($rules)) {
+            return redirect()->back()
+                ->withInput()
+                ->with('errors', $this->validator->getErrors());
+        }
+
+        $data = [
+            'username'  => trim((string) $this->request->getPost('username')),
+            'full_name' => trim((string) $this->request->getPost('full_name')),
+        ];
+
+        $newPassword = (string) $this->request->getPost('password');
+
+        if ($newPassword !== '') {
+            $data['password'] = password_hash(
+                $newPassword,
+                PASSWORD_DEFAULT
+            );
+        }
+
+        $avatar = $this->request->getFile('avatar');
+
+        if ($avatar && $avatar->isValid() && !$avatar->hasMoved()) {
+            $uploadDirectory = FCPATH . 'uploads/';
+
+            if (!is_dir($uploadDirectory)) {
+                mkdir($uploadDirectory, 0755, true);
             }
 
-            if (!is_file($destination)) {
+            $newName = $avatar->getRandomName();
+
+            if (!$avatar->move($uploadDirectory, $newName)) {
                 return redirect()->back()
                     ->withInput()
                     ->with('errors', [
-                        'avatar' => 'Image processing finished, but the thumbnail file was not created.'
+                        'avatar' => 'The avatar could not be uploaded.',
                     ]);
             }
 
@@ -157,7 +173,30 @@ public function edit($id)
 
         $userModel->update($id, $data);
 
-        return redirect()->to('/users')
-            ->with('success', 'User updated successfully.');
+        return redirect()->to(site_url('users'))
+            ->with('success', 'Staff account updated successfully.');
+    }
+
+    public function delete($id)
+    {
+        $userModel = new UserModel();
+        $user = $userModel->find($id);
+
+        if (!$user) {
+            throw PageNotFoundException::forPageNotFound('User not found.');
+        }
+
+        // Prevent deleting the currently logged-in account.
+        if ((int) session()->get('userId') === (int) $id) {
+            return redirect()->to(site_url('users'))
+                ->with('errors', [
+                    'You cannot delete your own logged-in account.',
+                ]);
+        }
+
+        $userModel->delete($id);
+
+        return redirect()->to(site_url('users'))
+            ->with('success', 'Staff account deleted successfully.');
     }
 }

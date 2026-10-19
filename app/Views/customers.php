@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -35,6 +34,7 @@
                 <th>Action</th>
             </tr>
         </thead>
+
         <tbody>
             <?php foreach ($customers as $customer): ?>
                 <tr>
@@ -43,7 +43,21 @@
                     <td><?= esc($customer['email']) ?></td>
                     <td><?= esc($customer['phone'] ?? '') ?></td>
                     <td>
-                        <a href="<?= site_url('customers/edit/' . $customer['id']) ?>">Edit</a>
+                        <a href="<?= site_url('customers/edit/' . $customer['id']) ?>">
+                            Edit
+                        </a>
+
+                        |
+
+                        <form
+                            action="<?= site_url('customers/delete/' . $customer['id']) ?>"
+                            method="post"
+                            style="display: inline;"
+                            onsubmit="return confirm('Are you sure you want to delete this customer?');"
+                        >
+                            <?= csrf_field() ?>
+                            <button type="submit">Delete</button>
+                        </form>
                     </td>
                 </tr>
             <?php endforeach; ?>
