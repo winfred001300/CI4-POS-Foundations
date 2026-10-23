@@ -2,3 +2,18 @@
 /writable/*
 !/writable/.gitignore
 /vendor/
+# Local database exports and backups
+/*.sql
+/public/*.sql
+*.backup
+
+# Local uploaded images
+/uploads/
+/public/uploads/
+
+# Temporary testing files
+/app/Views/test.php
+/public/gd-check.php.txt
+/.htaccess.txt
+/ales features*
+
